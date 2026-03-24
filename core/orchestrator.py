@@ -2,7 +2,8 @@
 任务调度与协作核心
 """
 import asyncio
-from typing import List, Dict, Optional, Callable
+import heapq
+from typing import List, Dict, Optional, Callable, Set
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -19,6 +20,15 @@ class TaskStatus(Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+    WAITING = "waiting"  # 等待依赖完成
+
+
+class TaskPriority(Enum):
+    """任务优先级"""
+    LOW = 10
+    NORMAL = 5
+    HIGH = 1
+    URGENT = 0
 
 
 @dataclass
@@ -27,7 +37,9 @@ class Task:
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     description: str = ""
     status: TaskStatus = TaskStatus.PENDING
+    priority: TaskPriority = TaskPriority.NORMAL
     assigned_agent: str = None
+    dependencies: Set[str] = field(default_factory=set)
     result: str = None
     error: str = None
     context: Dict = field(default_factory=dict)
@@ -36,12 +48,18 @@ class Task:
     started_at: datetime = None
     completed_at: datetime = None
     
+    def __lt__(self, other):
+        """支持堆排序（优先级高的先执行）"""
+        return self.priority.value < other.priority.value
+    
     def __dict__(self) -> Dict:
         return {
             "id": self.id,
             "description": self.description,
             "status": self.status.value,
+            "priority": self.priority.name,
             "assigned_agent": self.assigned_agent,
+            "dependencies": list(self.dependencies),
             "result": self.result,
             "error": self.error,
             "created_at": self.created_at.isoformat(),
@@ -63,36 +81,68 @@ class TaskResult:
 
 class TaskScheduler:
     """任务调度器"""
-    
+
     def __init__(self, max_concurrent: int = 3, retry_attempts: int = 2):
         self.max_concurrent = max_concurrent
         self.retry_attempts = retry_attempts
         self.agents: Dict[str, BaseAgent] = {}
         self.tasks: Dict[str, Task] = {}
-        self.task_queue: asyncio.Queue = None
+        self._priority_queue: List[Task] = []  # 优先级队列
         self._semaphore: asyncio.Semaphore = None
         self._running = False
-    
+
     def register_agent(self, name: str, agent: BaseAgent):
         """注册 Agent"""
         self.agents[name] = agent
-    
+
     def unregister_agent(self, name: str):
         """注销 Agent"""
         if name in self.agents:
             del self.agents[name]
-    
-    def create_task(self, description: str, context: Dict = None) -> Task:
+
+    def create_task(self, description: str, context: Dict = None, 
+                    priority: TaskPriority = TaskPriority.NORMAL,
+                    dependencies: List[str] = None) -> Task:
         """创建任务"""
-        task = Task(description=description, context=context or {})
+        task = Task(
+            description=description, 
+            context=context or {},
+            priority=priority,
+            dependencies=set(dependencies) if dependencies else set()
+        )
         self.tasks[task.id] = task
+        heapq.heappush(self._priority_queue, task)
         return task
-    
+
     def create_subtask(self, parent_task: Task, description: str) -> Task:
         """创建子任务"""
-        subtask = Task(description=description)
+        subtask = Task(description=description, priority=parent_task.priority)
         parent_task.subtasks.append(subtask)
+        self.tasks[subtask.id] = subtask
         return subtask
+
+    def add_dependency(self, task_id: str, depends_on: str):
+        """添加任务依赖"""
+        if task_id in self.tasks:
+            self.tasks[task_id].dependencies.add(depends_on)
+
+    def _get_ready_tasks(self) -> List[Task]:
+        """获取所有依赖已满足的可执行任务"""
+        ready = []
+        for task in self.tasks.values():
+            if task.status == TaskStatus.PENDING:
+                # 检查所有依赖是否完成
+                deps_completed = all(
+                    self.tasks.get(dep_id, Task()).status == TaskStatus.COMPLETED
+                    for dep_id in task.dependencies
+                )
+                if deps_completed:
+                    ready.append(task)
+                else:
+                    task.status = TaskStatus.WAITING
+        # 按优先级排序
+        ready.sort()
+        return ready
     
     async def execute_task(self, task: Task, agent_name: str = None) -> TaskResult:
         """执行单个任务"""
@@ -151,29 +201,94 @@ class TaskScheduler:
         if not self.agents:
             raise ValueError("没有可用的 Agent")
         return list(self.agents.keys())[0]
-    
-    async def execute_parallel(self, tasks: List[Task]) -> List[TaskResult]:
-        """并行执行多个任务"""
+
+    async def execute_parallel(self, tasks: List[Task] = None) -> List[TaskResult]:
+        """并行执行多个任务（支持依赖管理）"""
         self._semaphore = asyncio.Semaphore(self.max_concurrent)
+        results: List[TaskResult] = []
+        
+        # 如果没有传入任务，使用调度器中的所有任务
+        if tasks is None:
+            tasks = list(self.tasks.values())
         
         async def limited_execute(task: Task) -> TaskResult:
             async with self._semaphore:
                 return await self.execute_task(task)
         
-        results = await asyncio.gather(
-            *[limited_execute(task) for task in tasks],
-            return_exceptions=True
-        )
+        # 调度循环：处理依赖和优先级
+        while True:
+            ready_tasks = self._get_ready_tasks()
+            if not ready_tasks:
+                # 检查是否还有未完成的任务
+                incomplete = [t for t in self.tasks.values() 
+                             if t.status not in (TaskStatus.COMPLETED, 
+                                                  TaskStatus.FAILED, 
+                                                  TaskStatus.CANCELLED)]
+                if not incomplete:
+                    break
+                # 避免死循环
+                await asyncio.sleep(0.1)
+                continue
+            
+            # 执行就绪任务
+            batch_results = await asyncio.gather(
+                *[limited_execute(task) for task in ready_tasks[:self.max_concurrent]],
+                return_exceptions=True
+            )
+            
+            for r in batch_results:
+                if isinstance(r, TaskResult):
+                    results.append(r)
+                else:
+                    results.append(TaskResult(
+                        task_id="unknown",
+                        success=False,
+                        output=str(r),
+                        agent_name="unknown",
+                        duration=0,
+                        metadata={"error": str(r)}
+                    ))
         
-        return [r if isinstance(r, TaskResult) else TaskResult(
-            task_id="unknown",
-            success=False,
-            output=str(r),
-            agent_name="unknown",
-            duration=0,
-            metadata={"error": str(r)}
-        ) for r in results]
-    
+        return results
+
+    async def execute_with_priority(self, tasks: List[Task]) -> List[TaskResult]:
+        """按优先级执行任务（无依赖）"""
+        # 使用优先级队列
+        heap = tasks.copy()
+        heapq.heapify(heap)
+        
+        self._semaphore = asyncio.Semaphore(self.max_concurrent)
+        results = []
+        
+        async def limited_execute(task: Task) -> TaskResult:
+            async with self._semaphore:
+                return await self.execute_task(task)
+        
+        while heap:
+            batch = []
+            while heap and len(batch) < self.max_concurrent:
+                batch.append(heapq.heappop(heap))
+            
+            batch_results = await asyncio.gather(
+                *[limited_execute(task) for task in batch],
+                return_exceptions=True
+            )
+            
+            for r in batch_results:
+                if isinstance(r, TaskResult):
+                    results.append(r)
+                else:
+                    results.append(TaskResult(
+                        task_id="unknown",
+                        success=False,
+                        output=str(r),
+                        agent_name="unknown",
+                        duration=0,
+                        metadata={"error": str(r)}
+                    ))
+
+        return results
+
     def get_task(self, task_id: str) -> Optional[Task]:
         """获取任务"""
         return self.tasks.get(task_id)

@@ -106,7 +106,7 @@ def single_task_mode(orchestrator: MultiAgentOrchestrator, task: str):
 def main():
     parser = argparse.ArgumentParser(description="多 Agent 编码助手")
     parser.add_argument("--provider", "-p", default="qwen",
-                       choices=["qwen", "doubao", "claude"],
+                       choices=["qwen", "doubao", "claude", "deepseek", "moonshot", "gemini"],
                        help="选择 LLM 提供商")
     parser.add_argument("--model", "-m", help="指定模型名称")
     parser.add_argument("--api-key", "-k", help="API Key（或使用环境变量）")

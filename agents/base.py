@@ -23,20 +23,24 @@ class AgentState:
 
 class BaseAgent(ABC):
     """Agent 基类"""
-    
+
     def __init__(self, name: str, llm_client: LLMClient = None,
                  system_prompt: str = None, temperature: float = 0.7,
-                 max_tokens: int = 4096):
+                 max_tokens: int = 4096, custom_system_prompt: str = None):
         self.name = name
         self.llm = llm_client or LLMClient()
         self.system_prompt = system_prompt or self.DEFAULT_SYSTEM_PROMPT
+        # 支持自定义系统提示（可覆盖默认）
+        if custom_system_prompt:
+            self.system_prompt = custom_system_prompt
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.state = AgentState(name=name)
         self.memory: List[Message] = []
-    
+        self._custom_instructions: str = ""
+
     DEFAULT_SYSTEM_PROMPT = "你是一个有帮助的 AI 助手"
-    
+
     @property
     @abstractmethod
     def specialty(self) -> str:
@@ -51,13 +55,22 @@ class BaseAgent(ABC):
         """清空记忆"""
         self.memory = []
     
+    def set_custom_instructions(self, instructions: str):
+        """设置自定义指令（追加到系统提示）"""
+        self._custom_instructions = instructions
+    
     def add_to_memory(self, role: str, content: str):
         """添加消息到记忆"""
         self.memory.append(Message(role, content))
-    
+
     def _build_messages(self, user_message: str) -> List[Message]:
         """构建消息列表"""
-        messages = [Message("system", self.system_prompt)]
+        # 合并系统提示和自定义指令
+        system_prompt = self.system_prompt
+        if self._custom_instructions:
+            system_prompt = f"{self.system_prompt}\n\n自定义指令:\n{self._custom_instructions}"
+        
+        messages = [Message("system", system_prompt)]
         messages.extend(self.memory)
         messages.append(Message("user", user_message))
         return messages

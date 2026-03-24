@@ -173,13 +173,115 @@ class ClaudeProvider(BaseLLMProvider):
         yield response.content
 
 
+class DeepSeekProvider(BaseLLMProvider):
+    """深度求索 DeepSeek"""
+    
+    def chat(self, messages: List[Message], **kwargs) -> LLMResponse:
+        url = "https://api.deepseek.com/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": self.model or "deepseek-chat",
+            "messages": [m.to_dict() for m in messages],
+            **kwargs
+        }
+        
+        resp = requests.post(url, headers=headers, json=payload, timeout=60)
+        resp.raise_for_status()
+        data = resp.json()
+        
+        return LLMResponse(
+            content=data["choices"][0]["message"]["content"],
+            usage=data.get("usage", {}),
+            raw=data
+        )
+    
+    def chat_stream(self, messages: List[Message], **kwargs) -> Generator[str, None, None]:
+        response = self.chat(messages, **kwargs)
+        yield response.content
+
+
+class MoonshotProvider(BaseLLMProvider):
+    """月之暗面 Moonshot (Kimi)"""
+    
+    def chat(self, messages: List[Message], **kwargs) -> LLMResponse:
+        url = "https://api.moonshot.cn/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": self.model or "moonshot-v1-8k",
+            "messages": [m.to_dict() for m in messages],
+            **kwargs
+        }
+        
+        resp = requests.post(url, headers=headers, json=payload, timeout=60)
+        resp.raise_for_status()
+        data = resp.json()
+        
+        return LLMResponse(
+            content=data["choices"][0]["message"]["content"],
+            usage=data.get("usage", {}),
+            raw=data
+        )
+    
+    def chat_stream(self, messages: List[Message], **kwargs) -> Generator[str, None, None]:
+        response = self.chat(messages, **kwargs)
+        yield response.content
+
+
+class GeminiProvider(BaseLLMProvider):
+    """Google Gemini"""
+    
+    def chat(self, messages: List[Message], **kwargs) -> LLMResponse:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
+        params = {"key": self.api_key}
+        headers = {"Content-Type": "application/json"}
+        
+        # Gemini 格式转换
+        contents = []
+        for m in messages:
+            if m.role != "system":
+                contents.append({
+                    "role": "user" if m.role == "user" else "model",
+                    "parts": [{"text": m.content}]
+                })
+        
+        payload = {
+            "contents": contents,
+            "generationConfig": {
+                **kwargs
+            }
+        }
+        
+        resp = requests.post(url, params=params, headers=headers, json=payload, timeout=60)
+        resp.raise_for_status()
+        data = resp.json()
+        
+        return LLMResponse(
+            content=data["candidates"][0]["content"]["parts"][0]["text"],
+            usage=data.get("usageMetadata", {}),
+            raw=data
+        )
+    
+    def chat_stream(self, messages: List[Message], **kwargs) -> Generator[str, None, None]:
+        response = self.chat(messages, **kwargs)
+        yield response.content
+
+
 class LLMClient:
     """统一 LLM 客户端"""
-    
+
     PROVIDERS = {
         "qwen": QwenProvider,
         "doubao": DoubaoProvider,
-        "claude": ClaudeProvider
+        "claude": ClaudeProvider,
+        "deepseek": DeepSeekProvider,
+        "moonshot": MoonshotProvider,
+        "gemini": GeminiProvider,
     }
     
     def __init__(self, provider: str = "qwen", api_key: str = None, 
@@ -204,6 +306,18 @@ class LLMClient:
             "claude": {
                 "base_url": "https://api.anthropic.com/v1",
                 "model": "claude-3-5-sonnet-20241022"
+            },
+            "deepseek": {
+                "base_url": None,
+                "model": "deepseek-chat"
+            },
+            "moonshot": {
+                "base_url": None,
+                "model": "moonshot-v1-8k"
+            },
+            "gemini": {
+                "base_url": None,
+                "model": "gemini-1.5-flash"
             }
         }
         
