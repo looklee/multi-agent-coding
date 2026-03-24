@@ -9,6 +9,14 @@ import uuid
 
 from api.llm import LLMClient, Message
 
+# 可选导入高级功能
+try:
+    from agents.tools import get_tool_registry, ToolResult
+    from agents.sandbox import execute_code, ExecutionResult
+    TOOLS_ENABLED = True
+except ImportError:
+    TOOLS_ENABLED = False
+
 
 @dataclass
 class AgentState:
@@ -26,7 +34,8 @@ class BaseAgent(ABC):
 
     def __init__(self, name: str, llm_client: LLMClient = None,
                  system_prompt: str = None, temperature: float = 0.7,
-                 max_tokens: int = 4096, custom_system_prompt: str = None):
+                 max_tokens: int = 4096, custom_system_prompt: str = None,
+                 enable_tools: bool = True, enable_sandbox: bool = True):
         self.name = name
         self.llm = llm_client or LLMClient()
         self.system_prompt = system_prompt or self.DEFAULT_SYSTEM_PROMPT
@@ -38,6 +47,11 @@ class BaseAgent(ABC):
         self.state = AgentState(name=name)
         self.memory: List[Message] = []
         self._custom_instructions: str = ""
+        
+        # 高级功能
+        self.enable_tools = enable_tools and TOOLS_ENABLED
+        self.enable_sandbox = enable_sandbox and TOOLS_ENABLED
+        self._tool_registry = get_tool_registry() if self.enable_tools else None
 
     DEFAULT_SYSTEM_PROMPT = "你是一个有帮助的 AI 助手"
 
@@ -51,13 +65,47 @@ class BaseAgent(ABC):
         """设置 LLM 客户端"""
         self.llm = llm_client
     
-    def clear_memory(self):
-        """清空记忆"""
-        self.memory = []
+    def use_tool(self, tool_name: str, **kwargs) -> Any:
+        """使用工具"""
+        if not self.enable_tools or not self._tool_registry:
+            raise RuntimeError("Tools are not enabled")
+        
+        result = self._tool_registry.execute_tool(tool_name, **kwargs)
+        
+        if result.success:
+            return result.output
+        else:
+            raise RuntimeError(f"Tool error: {result.error}")
+    
+    def execute_code(self, code: str, timeout: int = 10) -> Any:
+        """执行代码（沙箱中）"""
+        if not self.enable_sandbox:
+            raise RuntimeError("Sandbox is not enabled")
+        
+        result = execute_code(code, timeout)
+        
+        if result.success:
+            return result.stdout or result.output
+        else:
+            raise RuntimeError(f"Code execution error: {result.error}")
+    
+    def get_available_tools(self) -> List[Dict]:
+        """获取可用工具列表"""
+        if not self.enable_tools or not self._tool_registry:
+            return []
+        
+        return [
+            {"name": t.name, "description": t.description}
+            for t in self._tool_registry.list_tools()
+        ]
     
     def set_custom_instructions(self, instructions: str):
         """设置自定义指令（追加到系统提示）"""
         self._custom_instructions = instructions
+    
+    def clear_memory(self):
+        """清空记忆"""
+        self.memory = []
     
     def add_to_memory(self, role: str, content: str):
         """添加消息到记忆"""
