@@ -11,6 +11,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# 导入优化模块
+try:
+    from core.cost_optimizer import get_cache, get_cost_tracker, get_router
+    from core.tracer import get_logger, EventType, log_event
+    OPTIMIZATION_ENABLED = True
+except ImportError:
+    OPTIMIZATION_ENABLED = False
+
 
 class Message:
     """消息对象"""
@@ -72,6 +80,25 @@ class QwenProvider(BaseLLMProvider):
         if "top_p" in kwargs:
             params["top_p"] = kwargs["top_p"]
         
+        # 构建缓存键
+        prompt_text = " ".join([m.content for m in messages if m.role == "user"])
+        
+        # 检查缓存
+        if OPTIMIZATION_ENABLED:
+            cache = get_cache()
+            cached = cache.get(prompt_text)
+            if cached:
+                # 记录缓存命中
+                get_logger().log_event(
+                    task_id=kwargs.get("task_id", "unknown"),
+                    event_type=EventType.CACHE_HIT,
+                    data={"saved_tokens": cached.output_tokens}
+                )
+                return LLMResponse(
+                    content=cached.content,
+                    usage={"input_tokens": cached.input_tokens, "output_tokens": cached.output_tokens}
+                )
+        
         payload = {
             "model": self.model,
             "input": {
@@ -80,6 +107,14 @@ class QwenProvider(BaseLLMProvider):
             "parameters": params
         }
         
+        # 记录 LLM 调用
+        if OPTIMIZATION_ENABLED:
+            get_logger().log_event(
+                task_id=kwargs.get("task_id", "unknown"),
+                event_type=EventType.LLM_CALL,
+                data={"provider": "qwen", "model": self.model, "prompt_length": len(prompt_text)}
+            )
+        
         resp = requests.post(url, headers=headers, json=payload, timeout=60)
         resp.raise_for_status()
         data = resp.json()
@@ -87,6 +122,22 @@ class QwenProvider(BaseLLMProvider):
         # DashScope 响应格式
         output = data.get("output", {})
         usage = data.get("usage", {})
+        
+        # 缓存响应
+        if OPTIMIZATION_ENABLED and usage:
+            content = output.get("text", "") or output.get("choices", [{}])[0].get("message", {}).get("content", "")
+            cache = get_cache()
+            cache.set(prompt_text, content, usage.get("input_tokens", 0), usage.get("output_tokens", 0))
+            
+            # 记录成本
+            cost_tracker = get_cost_tracker()
+            cost_tracker.record(
+                provider="qwen",
+                model=self.model,
+                input_tokens=usage.get("input_tokens", 0),
+                output_tokens=usage.get("output_tokens", 0),
+                task_id=kwargs.get("task_id", "")
+            )
         
         return LLMResponse(
             content=output.get("text", "") or output.get("choices", [{}])[0].get("message", {}).get("content", ""),
