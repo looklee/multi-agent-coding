@@ -10,3 +10,10 @@ watchdog>=3.0.0
 
 # Web UI
 streamlit>=1.30.0
+
+# 测试
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+
+# 可选工具依赖
+# qrcode>=7.4.0  # 二维码生成

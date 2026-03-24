@@ -120,6 +120,17 @@ streamlit run webui.py
 
 访问 http://localhost:8501
 
+## 🧪 测试
+
+```bash
+# 运行所有测试
+pytest tests/ -v
+
+# 运行特定模块测试
+pytest tests/test_tools.py -v
+pytest tests/test_sandbox.py -v
+```
+
 ### 代码使用
 
 ```python
