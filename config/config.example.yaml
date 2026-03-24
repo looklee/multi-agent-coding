@@ -1,0 +1,63 @@
+# 多 Agent 编码助手配置文件
+
+# 默认大模型配置
+default_model:
+  provider: qwen  # qwen | doubao | claude
+  api_key: ${QWEN_API_KEY}
+  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  model: qwen-coding-plus
+
+# 各 provider 配置
+providers:
+  qwen:
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    model: qwen-coding-plus
+    api_key_env: QWEN_API_KEY
+    
+  doubao:
+    base_url: https://ark.cn-beijing.volces.com/api/v3
+    model: doubao-pro-32k
+    api_key_env: DOUBAO_API_KEY
+    
+  claude:
+    base_url: https://api.anthropic.com/v1
+    model: claude-3-5-sonnet-20241022
+    api_key_env: CLAUDE_API_KEY
+
+# Agent 配置
+agents:
+  codewriter:
+    temperature: 0.7
+    max_tokens: 4096
+    system_prompt: "你是一个专业的代码生成助手"
+    
+  codereviewer:
+    temperature: 0.3
+    max_tokens: 2048
+    system_prompt: "你是一个严格的代码审查专家"
+    
+  testgenerator:
+    temperature: 0.5
+    max_tokens: 4096
+    system_prompt: "你是一个测试用例生成专家"
+    
+  docwriter:
+    temperature: 0.6
+    max_tokens: 2048
+    system_prompt: "你是一个技术文档编写专家"
+    
+  architect:
+    temperature: 0.4
+    max_tokens: 4096
+    system_prompt: "你是一个资深软件架构师"
+    
+  debugger:
+    temperature: 0.3
+    max_tokens: 4096
+    system_prompt: "你是一个调试和问题解决专家"
+
+# 任务调度配置
+scheduler:
+  max_concurrent_tasks: 3
+  retry_attempts: 2
+  timeout_seconds: 300
