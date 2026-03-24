@@ -2,6 +2,23 @@
 
 多 Agent 协作编码助手，通过多个专业化 Agent 协作完成复杂的编程任务。
 
+## 🚀 快速开始
+
+```bash
+# 安装依赖
+pip install -r requirements.txt
+
+# 配置 API Key
+cp .env.example .env
+# 编辑 .env 填入你的 API Key
+
+# 命令行使用
+python main.py "为快速排序生成 Python 实现和测试用例"
+
+# Web UI
+streamlit run webui.py
+```
+
 ## 痛点解决
 
 本项目旨在解决当前 AI 编程助手的以下痛点：
@@ -12,91 +29,38 @@
 4. **上下文丢失** - 长对话中容易遗忘早期信息
 5. **无法并行** - 独立子任务可以并行处理提高效率
 
-## 特性
+## ✨ 特性
 
-- 🤖 **多 Agent 协作** - 6 种专用 Agent：代码生成、审查、测试、文档、架构、调试
-- 🔌 **多模型支持** - 支持 Qwen、Doubao、Claude 等主流大模型
+- 🤖 **11 种专用 Agent** - 覆盖编程全流程
+- 🔌 **6 个模型提供商** - Qwen, DeepSeek, Moonshot, Doubao, Claude, Gemini
 - 📋 **智能任务分解** - 自动将复杂任务分解为可执行的子任务
 - ⚡ **并行执行** - 支持多 Agent 并行处理子任务
+- 🎯 **优先级调度** - 支持任务优先级和依赖管理
 - 💾 **记忆管理** - 每个 Agent 维护独立记忆上下文
-- 🎯 **灵活配置** - YAML 配置文件 + 环境变量
+- 🔥 **配置热重载** - YAML 配置文件修改后自动生效
+- 🎨 **Web 界面** - 美观的 Streamlit Web UI
+- 💬 **自定义指令** - Agent 支持自定义系统提示
 
-## 项目结构
+## 📊 项目结构
 
 ```
 multi-agent-coding/
 ├── api/              # LLM API 封装
-│   └── llm.py
-├── agents/           # Agent 定义
+│   └── llm.py        # 支持 6 个提供商
+├── agents/           # 11 种 Agent
 │   ├── base.py       # 基类
-│   └── __init__.py   # 专用 Agent
+│   └── __init__.py   # Agent 定义
 ├── core/             # 核心调度
 │   └── orchestrator.py
-├── config/           # 配置文件
-│   └── config.example.yaml
-├── main.py           # 入口
+├── config/           # 配置管理
+│   └── manager.py    # 热重载配置
+├── main.py           # CLI 入口
+├── webui.py          # Web UI
 ├── requirements.txt
-├── .env.example
 └── README.md
 ```
 
-## 安装
-
-```bash
-# 克隆/进入项目
-cd multi-agent-coding
-
-# 安装依赖
-pip install -r requirements.txt
-
-# 配置 API Key
-cp .env.example .env
-# 编辑 .env 填入你的 API Key
-```
-
-## 使用
-
-### 命令行使用
-
-```bash
-# 使用默认配置（Qwen）
-python main.py "为快速排序生成 Python 实现和测试用例"
-
-# 指定提供商
-python main.py -p doubao "分析这段代码的性能问题"
-
-# 指定 Agent
-python main.py -a codewriter -a codereviewer "实现一个 REST API"
-
-# 交互模式
-python main.py
-```
-
-### 代码使用
-
-```python
-from api.llm import create_client
-from agents import create_agent
-from core.orchestrator import MultiAgentOrchestrator
-
-# 创建编排器
-orchestrator = MultiAgentOrchestrator()
-llm = create_client(provider="qwen", api_key="your-key")
-orchestrator.set_llm(llm)
-
-# 添加 Agent
-orchestrator.add_agent("codewriter", create_agent("codewriter", llm_client=llm))
-orchestrator.add_agent("codereviewer", create_agent("codereviewer", llm_client=llm))
-
-# 执行任务
-results = orchestrator.run_sync("实现一个线程安全的缓存类")
-
-for result in results:
-    print(f"Agent: {result.agent_name}")
-    print(f"输出：{result.output}")
-```
-
-## 可用 Agent
+## 🤖 可用 Agent
 
 | Agent | 专长 | 描述 |
 |-------|------|------|
@@ -106,33 +70,110 @@ for result in results:
 | docwriter | 文档编写 | 编写技术文档和注释 |
 | architect | 架构设计 | 系统架构和技术选型 |
 | debugger | 问题调试 | 分析和解决代码问题 |
+| **security** | 安全审计 | 识别安全漏洞和风险 |
+| **performance** | 性能优化 | 性能分析和优化建议 |
+| **refactor** | 代码重构 | 识别代码异味并重构 |
+| **ml** | 机器学习 | ML 模型设计和实现 |
+| **devops** | DevOps | CI/CD 和基础设施 |
 
-## 支持的模型
+## 🔌 支持的模型
 
-| 提供商 | 模型 | 环境变量 |
-|--------|------|----------|
-| Qwen | qwen-coding-plus | QWEN_API_KEY |
+| 提供商 | 默认模型 | 环境变量 |
+|--------|----------|----------|
+| Qwen | qwen-plus | QWEN_API_KEY |
+| DeepSeek | deepseek-chat | DEEPSEEK_API_KEY |
+| Moonshot | moonshot-v1-8k | MOONSHOT_API_KEY |
 | Doubao | doubao-pro-32k | DOUBAO_API_KEY |
 | Claude | claude-3-5-sonnet | CLAUDE_API_KEY |
+| Gemini | gemini-1.5-flash | GEMINI_API_KEY |
 
-## 配置示例
+## 💻 使用方式
+
+### 命令行
+
+```bash
+# 基础使用
+python main.py "实现一个线程安全的缓存类"
+
+# 指定提供商
+python main.py -p deepseek "分析代码性能问题"
+
+# 指定 Agent
+python main.py -a security -a performance "审计这段代码"
+
+# 交互模式
+python main.py
+```
+
+### Web UI
+
+```bash
+streamlit run webui.py
+```
+
+访问 http://localhost:8501
+
+### 代码使用
+
+```python
+from api.llm import create_client
+from agents import create_agent
+from core.orchestrator import MultiAgentOrchestrator, TaskPriority
+
+# 创建编排器
+orchestrator = MultiAgentOrchestrator()
+llm = create_client(provider="qwen", api_key="your-key")
+orchestrator.set_llm(llm)
+
+# 添加 Agent
+orchestrator.add_agent("codewriter", create_agent("codewriter", llm_client=llm))
+orchestrator.add_agent("security", create_agent("security", llm_client=llm))
+
+# 创建带优先级和依赖的任务
+task1 = orchestrator.scheduler.create_task("生成代码", priority=TaskPriority.HIGH)
+task2 = orchestrator.scheduler.create_task("安全审计", dependencies=[task1.id])
+
+# 执行
+import asyncio
+results = asyncio.run(orchestrator.scheduler.execute_parallel())
+```
+
+## ⚙️ 配置
+
+### 环境变量
+
+```bash
+# .env
+QWEN_API_KEY=sk-xxx
+DEEPSEEK_API_KEY=xxx
+MOONSHOT_API_KEY=xxx
+```
+
+### YAML 配置
 
 ```yaml
 # config/config.yaml
 default_model:
   provider: qwen
-  model: qwen-coding-plus
 
 agents:
   codewriter:
     temperature: 0.7
     max_tokens: 4096
-  codereviewer:
+    system_prompt: "你是专业的代码生成助手"
+  
+  security:
     temperature: 0.3
     max_tokens: 2048
+
+scheduler:
+  max_concurrent_tasks: 3
+  retry_attempts: 2
 ```
 
-## 扩展
+配置文件修改后自动重载！
+
+## 🛠️ 扩展
 
 ### 添加新 Agent
 
@@ -146,22 +187,16 @@ class CustomAgent(BaseAgent):
     def specialty(self) -> str:
         return "你的专长描述"
 
-# 注册
-from agents import AGENT_REGISTRY
-AGENT_REGISTRY["custom"] = CustomAgent
+# 注册到 agents/__init__.py 的 AGENT_REGISTRY
 ```
 
-### 添加新模型提供商
+### 自定义 Agent 指令
 
 ```python
-from api.llm import BaseLLMProvider
-
-class CustomProvider(BaseLLMProvider):
-    def chat(self, messages, **kwargs):
-        # 实现你的 API 调用
-        pass
+agent = create_agent("codewriter", llm_client=llm)
+agent.set_custom_instructions("请使用函数式编程风格")
 ```
 
-## 许可证
+## 📄 许可证
 
 MIT
