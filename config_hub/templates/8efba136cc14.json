@@ -1,0 +1,22 @@
+{
+  "id": "8efba136cc14",
+  "name": "企业架构设计",
+  "description": "企业级架构设计配置",
+  "agent_type": "architect",
+  "config": {
+    "temperature": 0.5,
+    "max_tokens": 8192,
+    "system_prompt": "你是资深企业架构师。考虑可扩展性、安全性和成本。",
+    "top_p": 0.9
+  },
+  "tags": [
+    "架构",
+    "企业",
+    "设计"
+  ],
+  "author": "system",
+  "version": "1.0.0",
+  "downloads": 0,
+  "rating": 0.0,
+  "rating_count": 0
+}

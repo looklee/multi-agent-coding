@@ -1,0 +1,22 @@
+{
+  "id": "a50491de9094",
+  "name": "标准代码生成",
+  "description": "适用于一般代码生成任务的标准配置",
+  "agent_type": "codewriter",
+  "config": {
+    "temperature": 0.7,
+    "max_tokens": 4096,
+    "system_prompt": "你是一个专业的代码生成助手。生成高质量、可维护的代码。",
+    "top_p": 0.9
+  },
+  "tags": [
+    "代码生成",
+    "标准",
+    "通用"
+  ],
+  "author": "system",
+  "version": "1.0.0",
+  "downloads": 0,
+  "rating": 0.0,
+  "rating_count": 0
+}

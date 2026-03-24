@@ -1,0 +1,22 @@
+{
+  "id": "edca6931bf06",
+  "name": "严格代码审查",
+  "description": "严格的代码审查配置，适合生产代码",
+  "agent_type": "codereviewer",
+  "config": {
+    "temperature": 0.3,
+    "max_tokens": 2048,
+    "system_prompt": "你是一个严格的代码审查专家。仔细检查每个细节。",
+    "top_p": 0.8
+  },
+  "tags": [
+    "代码审查",
+    "严格",
+    "质量"
+  ],
+  "author": "system",
+  "version": "1.0.0",
+  "downloads": 0,
+  "rating": 0.0,
+  "rating_count": 0
+}

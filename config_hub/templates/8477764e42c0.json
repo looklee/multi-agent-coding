@@ -1,0 +1,19 @@
+{
+  "id": "8477764e42c0",
+  "name": "Custom Template",
+  "description": "自定义测试模板",
+  "agent_type": "codewriter",
+  "config": {
+    "temperature": 0.8,
+    "max_tokens": 2048
+  },
+  "tags": [
+    "custom",
+    "test"
+  ],
+  "author": "",
+  "version": "1.0.0",
+  "downloads": 0,
+  "rating": 0.0,
+  "rating_count": 0
+}

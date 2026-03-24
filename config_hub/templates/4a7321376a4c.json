@@ -1,0 +1,22 @@
+{
+  "id": "4a7321376a4c",
+  "name": "详细调试",
+  "description": "提供详细的调试分析，适合学习",
+  "agent_type": "debugger",
+  "config": {
+    "temperature": 0.4,
+    "max_tokens": 4096,
+    "system_prompt": "你是一个耐心的调试专家。提供详细的分析和解释。",
+    "top_p": 0.9
+  },
+  "tags": [
+    "调试",
+    "详细",
+    "教学"
+  ],
+  "author": "system",
+  "version": "1.0.0",
+  "downloads": 0,
+  "rating": 0.0,
+  "rating_count": 0
+}
